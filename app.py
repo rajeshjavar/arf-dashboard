@@ -93,7 +93,7 @@ if uploaded_file:
 
                     mailto = f"mailto:?subject={subject}&body={body}"
 
-                    st.markdown(f"{mailto}")
+                    st.markdown(f"[📧 Click here to open Outlook Email]({mailto})")
 
     except Exception as e:
         st.error(f"Error: {e}")
