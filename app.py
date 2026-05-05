@@ -24,101 +24,110 @@ def create_pdf(data):
     pdf.setFont("Helvetica", 11)
     pdf.drawString(50, 720, f"Total Spend: ${total_amt}")
 
-    # ✅ Monthly Chart
-    temp = data.copy()
-    temp['Month'] = temp['End Date'].dt.to_period("M").astype(str)
-    monthly = temp.groupby("Month")["Amount - USD"].sum()
-
-    plt.figure(figsize=(6,3))
-    monthly.plot(marker='o')
-    plt.tight_layout()
-    plt.savefig("trend.png")
-    plt.close()
-    pdf.drawImage("trend.png", 50, 500, width=500, height=200)
-
-    # ✅ Division Chart
-    div_sum = data.groupby("Division")["Amount - USD"].sum()
-
-    plt.figure(figsize=(6,3))
-    div_sum.plot(kind='bar')
-    plt.tight_layout()
-    plt.savefig("div.png")
-    plt.close()
-    pdf.drawImage("div.png", 50, 270, width=500, height=200)
-
     pdf.save()
     buffer.seek(0)
     return buffer
 
 
-# ✅ MAIN APP (WITH ERROR VISIBILITY)
+# ✅ ✅ MAIN APP (NO TRY BLOCK → NO SYNTAX ERROR)
+
 if uploaded_file:
-    try:
-        df = pd.read_csv(uploaded_file)
 
-        # ✅ DEBUG (IMPORTANT)
-        st.write("✅ File loaded")
-        st.write("Columns detected:", df.columns.tolist())
+    df = pd.read_csv(uploaded_file)
 
-        # ✅ REQUIRED COLUMNS CHECK
-        required = ['Spoc','Activity','End Date','Amount - USD','Closure Status','Division']
-        missing = [c for c in required if c not in df.columns]
+    # ✅ DEBUG (so you SEE output always)
+    st.write("✅ File Loaded Successfully")
+    st.write("Columns:", df.columns.tolist())
 
-        if missing:
-            st.error(f"❌ Missing columns: {missing}")
-            st.stop()
+    # ✅ CLEAN
+    df.columns = df.columns.str.strip()
 
-        # ✅ CLEAN
-        df.columns = df.columns.str.strip()
-        df['Spoc'] = df['Spoc'].astype(str).str.strip()
-        df['Closure Status'] = df['Closure Status'].astype(str).str.strip()
-        df['Division'] = df['Division'].astype(str).str.strip()
-        df['End Date'] = pd.to_datetime(df['End Date'], errors='coerce')
+    # ✅ COLUMN VALIDATION
+    required = ['Spoc','Activity','End Date','Amount - USD','Closure Status','Division']
+    missing = [c for c in required if c not in df.columns]
 
-        # ✅ FILTERS
-        st.subheader("🔎 Filters")
-        f1, f2, f3 = st.columns(3)
+    if missing:
+        st.error(f"❌ Missing columns: {missing}")
+        st.stop()
 
-        with f1:
-            spoc = st.selectbox("SPOC", ["All"] + sorted(df['Spoc'].dropna().unique()))
-        with f2:
-            status = st.selectbox("Status", ["All"] + sorted(df['Closure Status'].dropna().unique()))
-        with f3:
-            division = st.selectbox("Division", ["All"] + sorted(df['Division'].dropna().unique()))
+    # ✅ FORMAT DATA
+    df['End Date'] = pd.to_datetime(df['End Date'], errors='coerce')
 
-        filtered = df.copy()
+    # ✅ FILTERS
+    st.subheader("🔎 Filters")
 
-        if spoc != "All":
-            filtered = filtered[filtered['Spoc'] == spoc]
-        if status != "All":
-            filtered = filtered[filtered['Closure Status'] == status]
-        if division != "All":
-            filtered = filtered[filtered['Division'] == division]
+    f1, f2, f3 = st.columns(3)
 
-        # ✅ KPIs
-        st.subheader("📌 KPIs")
+    with f1:
+        spoc = st.selectbox("SPOC", ["All"] + sorted(df['Spoc'].dropna().unique()))
+    with f2:
+        status = st.selectbox("Status", ["All"] + sorted(df['Closure Status'].dropna().unique()))
+    with f3:
+        division = st.selectbox("Division", ["All"] + sorted(df['Division'].dropna().unique()))
 
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Total Items", len(filtered))
-        k2.metric("Open Items", len(filtered[filtered['Closure Status']=="Open"]))
-        k3.metric("Total USD", int(filtered['Amount - USD'].sum()))
+    filtered = df.copy()
 
-        # ✅ CHARTS
-        st.subheader("📊 Charts")
+    if spoc != "All":
+        filtered = filtered[filtered['Spoc'] == spoc]
 
-        c1, c2 = st.columns(2)
+    if status != "All":
+        filtered = filtered[filtered['Closure Status'] == status]
 
-        with c1:
-            temp = filtered.copy()
-            temp['Month'] = temp['End Date'].dt.to_period("M").astype(str)
-            monthly = temp.groupby("Month")["Amount - USD"].sum()
-            st.line_chart(monthly)
+    if division != "All":
+        filtered = filtered[filtered['Division'] == division]
 
-        with c2:
-            div_sum = filtered.groupby("Division")["Amount - USD"].sum()
-            st.bar_chart(div_sum)
+    # ✅ KPIs
+    st.subheader("📌 KPIs")
 
-        # ✅ TABLE
-        st.subheader("📋 Data")
-        st.dataframe(filtered)
+    col1, col2, col3 = st.columns(3)
 
+    col1.metric("Total Items", len(filtered))
+    col2.metric("Open Items", len(filtered[filtered['Closure Status']=="Open"]))
+    col3.metric("Total USD", int(filtered['Amount - USD'].sum()))
+
+    # ✅ CHARTS
+    st.subheader("📊 Charts")
+
+    c1, c2 = st.columns(2)
+
+    # Monthly
+    with c1:
+        temp = filtered.copy()
+        temp['Month'] = temp['End Date'].dt.to_period("M").astype(str)
+        monthly = temp.groupby("Month")["Amount - USD"].sum()
+        st.line_chart(monthly)
+
+    # Division
+    with c2:
+        div_sum = filtered.groupby("Division")["Amount - USD"].sum()
+        st.bar_chart(div_sum)
+
+    # ✅ TABLE
+    st.subheader("📋 Data")
+    st.dataframe(filtered)
+
+    # ✅ ACTIONS
+    st.subheader("📄 Actions")
+
+    colA, colB = st.columns(2)
+
+    # ✅ PDF BUTTON
+    with colA:
+        pdf = create_pdf(filtered)
+
+        st.download_button(
+            label="📥 Download PDF",
+            data=pdf,
+            file_name="dashboard.pdf",
+            mime="application/pdf"
+        )
+
+    # ✅ OUTLOOK BUTTON
+    with colB:
+        if st.button("📧 Open Outlook Email"):
+
+            msg = "Pending closures report"
+
+            link = f"mailto:?subject=Closures&body={urllib.parse.quote(msg)}"
+
+            st.markdown(f"{link}")
