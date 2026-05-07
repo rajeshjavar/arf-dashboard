@@ -14,7 +14,6 @@ uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
 # ✅ PDF FUNCTION
 def create_pdf(data):
-
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=letter)
 
@@ -25,33 +24,8 @@ def create_pdf(data):
     pdf.setFont("Helvetica", 11)
     pdf.drawString(50, 720, f"Total Spend: ${total_amt}")
 
-    # Monthly chart
-    temp = data.copy()
-    temp['Month'] = temp['End Date'].dt.to_period("M").astype(str)
-    monthly = temp.groupby("Month")["Amount - USD"].sum()
-
-    plt.figure(figsize=(6,3))
-    monthly.plot(marker='o')
-    plt.tight_layout()
-    plt.savefig("trend.png")
-    plt.close()
-
-    pdf.drawImage("trend.png", 50, 500, width=500, height=200)
-
-    # Division chart
-    div_sum = data.groupby("Division")["Amount - USD"].sum()
-
-    plt.figure(figsize=(6,3))
-    div_sum.plot(kind='bar')
-    plt.tight_layout()
-    plt.savefig("div.png")
-    plt.close()
-
-    pdf.drawImage("div.png", 50, 270, width=500, height=200)
-
     pdf.save()
     buffer.seek(0)
-
     return buffer
 
 
@@ -80,14 +54,24 @@ if uploaded_file is not None:
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        spoc = st.selectbox("SPOC", ["All"] + sorted(df['Spoc'].dropna().unique()))
+        spoc = st.selectbox(
+            "SPOC",
+            ["All"] + sorted(df['Spoc'].dropna().unique())
+        )
 
     with col2:
-        status = st.selectbox("Status", ["All"] + sorted(df['Closure Status'].dropna().unique()))
+        status = st.selectbox(
+            "Status",
+            ["All"] + sorted(df['Closure Status'].dropna().unique())
+        )
 
     with col3:
-        division = st.selectbox("Division", ["All"] + sorted(df['Division'].dropna().unique()))
+        division = st.selectbox(
+            "Division",
+            ["All"] + sorted(df['Division'].dropna().unique())
+        )
 
+    # ✅ FILTER LOGIC
     filtered = df.copy()
 
     if spoc != "All":
@@ -123,38 +107,3 @@ if uploaded_file is not None:
     with c1:
         temp = filtered.copy()
         temp['Month'] = temp['End Date'].dt.to_period("M").astype(str)
-        monthly = temp.groupby("Month")["Amount - USD"].sum()
-        st.line_chart(monthly)
-
-    with c2:
-        div_sum = filtered.groupby("Division")["Amount - USD"].sum()
-        st.bar_chart(div_sum)
-
-    # ✅ TABLE
-    st.subheader("📋 Data")
-    st.dataframe(filtered, use_container_width=True)
-
-    # ✅ ACTIONS
-    st.subheader("📄 Actions")
-
-    colA, colB = st.columns(2)
-
-    # ✅ PDF BUTTON
-    with colA:
-        pdf = create_pdf(filtered)
-
-        st.download_button(
-            label="📥 Download PDF",
-            data=pdf,
-            file_name="closure_dashboard_report.pdf",
-            mime="application/pdf"
-        )
-
-    # ✅ OUTLOOK BUTTON (SAFE VERSION — NO BREAK)
-    with colB:
-        if st.button("📧 Open Outlook Email"):
-
-            msg = "Pending closures report"
-            link = f"mailto:?subject=Closures&body={urllib.parse.quote(msg)}"
-
-          st.link_button("📧 Click here to open Outlook", link)
