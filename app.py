@@ -157,4 +157,4 @@ if uploaded_file is not None:
             msg = "Pending closures report"
             link = f"mailto:?subject=Closures&body={urllib.parse.quote(msg)}"
 
-            st.markdown(f"{link}")
+          st.link_button("📧 Click here to open Outlook", link)
