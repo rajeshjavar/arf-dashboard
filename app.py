@@ -33,11 +33,8 @@ def create_pdf(data):
 if uploaded_file is not None:
 
     df = pd.read_csv(uploaded_file)
-
-    # ✅ CLEAN HEADERS
     df.columns = df.columns.str.strip()
 
-    # ✅ CHECK REQUIRED COLUMNS
     required = ['Spoc','Activity','End Date','Amount - USD','Closure Status','Division']
     missing = [c for c in required if c not in df.columns]
 
@@ -45,41 +42,26 @@ if uploaded_file is not None:
         st.error(f"❌ Missing columns: {missing}")
         st.stop()
 
-    # ✅ FORMAT
     df['End Date'] = pd.to_datetime(df['End Date'], errors='coerce')
 
     # ✅ FILTERS
     st.subheader("🔎 Filters")
 
-    col1, col2, col3 = st.columns(3)
+    c1, c2, c3 = st.columns(3)
 
-    with col1:
-        spoc = st.selectbox(
-            "SPOC",
-            ["All"] + sorted(df['Spoc'].dropna().unique())
-        )
+    with c1:
+        spoc = st.selectbox("SPOC", ["All"] + sorted(df['Spoc'].dropna().unique()))
+    with c2:
+        status = st.selectbox("Status", ["All"] + sorted(df['Closure Status'].dropna().unique()))
+    with c3:
+        division = st.selectbox("Division", ["All"] + sorted(df['Division'].dropna().unique()))
 
-    with col2:
-        status = st.selectbox(
-            "Status",
-            ["All"] + sorted(df['Closure Status'].dropna().unique())
-        )
-
-    with col3:
-        division = st.selectbox(
-            "Division",
-            ["All"] + sorted(df['Division'].dropna().unique())
-        )
-
-    # ✅ FILTER LOGIC
     filtered = df.copy()
 
     if spoc != "All":
         filtered = filtered[filtered['Spoc'] == spoc]
-
     if status != "All":
         filtered = filtered[filtered['Closure Status'] == status]
-
     if division != "All":
         filtered = filtered[filtered['Division'] == division]
 
@@ -99,11 +81,45 @@ if uploaded_file is not None:
 
     k4.metric("Overdue", len(overdue))
 
-    # ✅ CHARTS
+    # ✅ ✅ ✅ CHARTS (FIXED)
     st.subheader("📊 Charts")
 
-    c1, c2 = st.columns(2)
+    ch1, ch2 = st.columns(2)
 
-    with c1:
+    with ch1:
         temp = filtered.copy()
         temp['Month'] = temp['End Date'].dt.to_period("M").astype(str)
+        monthly = temp.groupby("Month")["Amount - USD"].sum()
+        st.line_chart(monthly)
+
+    with ch2:
+        div_sum = filtered.groupby("Division")["Amount - USD"].sum()
+        st.bar_chart(div_sum)
+
+    # ✅ ✅ ✅ TABLE (RESTORED)
+    st.subheader("📋 Data")
+    st.dataframe(filtered, use_container_width=True)
+
+    # ✅ ✅ ✅ ACTIONS (RESTORED)
+    st.subheader("📄 Actions")
+
+    a1, a2 = st.columns(2)
+
+    # PDF
+    with a1:
+        pdf = create_pdf(filtered)
+
+        st.download_button(
+            "📥 Download PDF",
+            pdf,
+            file_name="closure_dashboard_report.pdf",
+            mime="application/pdf"
+        )
+
+    # EMAIL
+    with a2:
+        if st.button("📧 Open Outlook Email"):
+            msg = "Pending closures report"
+            link = f"mailto:?subject=Closures&body={urllib.parse.quote(msg)}"
+
+            st.link_button("📧 Click here to open Outlook", link)
