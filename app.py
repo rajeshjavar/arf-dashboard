@@ -111,54 +111,45 @@ if uploaded_file is not None:
         )
 
     # ✅ ✅ ✅ HTML EMAIL TABLE (FINAL PREMIUM VERSION)
-    with a2:
-        if st.button("📧 Open Outlook Email"):
+ with a2:
+    pending = filtered[filtered['Closure Status'] == "Open"]
 
-            pending = filtered[filtered['Closure Status'] == "Open"]
+    if pending.empty:
+        st.warning("No pending items")
+    else:
+        email_df = pending[[
+            "Spoc","Activity","End Date","Amount - USD","Closure Status","Division"
+        ]].copy()
 
-            if pending.empty:
-                st.warning("No pending items")
-            else:
-                email_df = pending[[
-                    "Spoc","Activity","End Date","Amount - USD","Closure Status","Division"
-                ]].copy()
+        email_df["End Date"] = email_df["End Date"].dt.date
 
-                email_df["End Date"] = email_df["End Date"].dt.date
+        # ✅ HTML table
+        html_table = email_df.to_html(index=False)
 
-                # ✅ Convert to HTML table
-                html_table = email_df.to_html(index=False)
+        html_table = html_table.replace(
+            "<table",
+            "<table border='1' style='border-collapse:collapse;'"
+        )
 
-                # ✅ Add styling (Excel-like)
-                html_table = html_table.replace(
-                    "<table",
-                    "<table border='1' style='border-collapse:collapse; font-size:12px;'"
-                )
+        html_body = f"""
+        <html>
+        <body>
+        <h3>Pending Closures Report</h3>
+        {html_table}
+        </body>
+        </html>
+        """
 
-                html_table = html_table.replace(
-                    "<th",
-                    "<th style='background-color:#D9E1F2; padding:6px;'"
-                )
+        # ✅ CREATE EML FILE
+        eml_content = f"""Subject: Pending Closures
+Content-Type: text/html
 
-                html_table = html_table.replace(
-                    "<td",
-                    "<td style='padding:6px;'"
-                )
+{html_body}
+"""
 
-                message = f"""
-                <html>
-                <body>
-                <p><b>Pending Closures Report</b></p>
-                {html_table}
-                </body>
-                </html>
-                """
-
-                subject = urllib.parse.quote(
-                    f"Pending Closures - {len(pending)} items"
-                )
-
-                body = urllib.parse.quote(message)
-
-                link = f"mailto:?subject={subject}&body={body}"
-
-                st.link_button("📧 Click to open Outlook (Excel Style Table)", link)
+        st.download_button(
+            "📧 Download Outlook Email (Ready Format)",
+            eml_content,
+            file_name="pending_closures.eml",
+            mime="message/rfc822"
+        )
