@@ -12,6 +12,7 @@ st.title("📊 Executive Closure Dashboard")
 
 uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
 
+
 # ✅ PDF FUNCTION
 def create_pdf(data):
     buffer = BytesIO()
@@ -48,7 +49,6 @@ if uploaded_file is not None:
     st.subheader("🔎 Filters")
 
     c1, c2, c3 = st.columns(3)
-
     with c1:
         spoc = st.selectbox("SPOC", ["All"] + sorted(df['Spoc'].dropna().unique()))
     with c2:
@@ -69,7 +69,6 @@ if uploaded_file is not None:
     st.subheader("📌 KPIs")
 
     k1, k2, k3, k4 = st.columns(4)
-
     k1.metric("Total Items", len(filtered))
     k2.metric("Open Items", len(filtered[filtered['Closure Status']=="Open"]))
     k3.metric("Total USD", int(filtered['Amount - USD'].sum()))
@@ -78,37 +77,35 @@ if uploaded_file is not None:
         (filtered['Closure Status']=="Open") &
         (filtered['End Date'] < pd.Timestamp.today())
     ]
-
     k4.metric("Overdue", len(overdue))
 
-    # ✅ ✅ ✅ CHARTS (FIXED)
+    # ✅ CHARTS
     st.subheader("📊 Charts")
 
-    ch1, ch2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    with ch1:
+    with c1:
         temp = filtered.copy()
         temp['Month'] = temp['End Date'].dt.to_period("M").astype(str)
         monthly = temp.groupby("Month")["Amount - USD"].sum()
         st.line_chart(monthly)
 
-    with ch2:
+    with c2:
         div_sum = filtered.groupby("Division")["Amount - USD"].sum()
         st.bar_chart(div_sum)
 
-    # ✅ ✅ ✅ TABLE (RESTORED)
+    # ✅ TABLE
     st.subheader("📋 Data")
     st.dataframe(filtered, use_container_width=True)
 
-    # ✅ ✅ ✅ ACTIONS (RESTORED)
+    # ✅ ACTIONS
     st.subheader("📄 Actions")
 
     a1, a2 = st.columns(2)
 
-    # PDF
+    # ✅ PDF
     with a1:
         pdf = create_pdf(filtered)
-
         st.download_button(
             "📥 Download PDF",
             pdf,
@@ -116,10 +113,37 @@ if uploaded_file is not None:
             mime="application/pdf"
         )
 
-    # EMAIL
+    # ✅ ✅ ✅ EMAIL WITH TABLE (FINAL FIX)
     with a2:
         if st.button("📧 Open Outlook Email"):
-            msg = "Pending closures report"
-            link = f"mailto:?subject=Closures&body={urllib.parse.quote(msg)}"
 
-            st.link_button("📧 Click here to open Outlook", link)
+            pending = filtered[filtered['Closure Status'] == "Open"]
+
+            if pending.empty:
+                st.warning("No pending items")
+            else:
+                # ✅ Create table text
+                table = ""
+
+                # ✅ Header row
+                headers = ["Spoc","Activity","End Date","Amount - USD","Closure Status","Division"]
+                table += "{:<15} {:<10} {:<12} {:<15} {:<15} {:<10}\n".format(*headers)
+                table += "-" * 80 + "\n"
+
+                # ✅ Rows
+                for _, row in pending.iterrows():
+                    table += "{:<15} {:<10} {:<12} {:<15} {:<15} {:<10}\n".format(
+                        str(row["Spoc"])[:15],
+                        str(row["Activity"]),
+                        str(row["End Date"].date()) if pd.notna(row["End Date"]) else "",
+                        int(row["Amount - USD"]),
+                        str(row["Closure Status"]),
+                        str(row["Division"])
+                    )
+
+                msg = f"Pending Closures Report\n\n{table}"
+
+                link = f"mailto:?subject={urllib.parse.quote('Pending Closures')}&body={urllib.parse.quote(msg)}"
+
+                st.link_button("📧 Click to open Outlook (Table Format)", link)
+``
